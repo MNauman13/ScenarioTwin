@@ -10,9 +10,9 @@ from ..models import MarketReturn
 logger = logging.getLogger(__name__)
 
 TICKERS = {
-    "^FTSE": "FTSE 100",
-    "^GSPC": "S&P 500",
-    "^VUKE.L": "Vanguard FTSE UK ETF",  # good proxy for UK equity returns
+    "^FTSE":  "FTSE 100",
+    "^GSPC":  "S&P 500",
+    "VUKE.L": "Vanguard FTSE UK ETF",   # correct symbol (no leading ^)
 }
 
 START_DATE = "1990-01-01"  # 35 years of data which is enough for multiple regime cycles
