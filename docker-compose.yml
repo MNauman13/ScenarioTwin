@@ -1,5 +1,3 @@
-version: "3.9"
-
 # All internal services share a private network.
 # Only the api-gateway exposes a port to the host.
 

@@ -1,21 +1,24 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, Float, String, Date, DateTime, UniqueConstraint
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+
+from sqlalchemy import String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
 from .database import Base
-
-
-def _utcnow():
-    return datetime.now(timezone.utc)
 
 
 class MarketReturn(Base):
     __tablename__ = "market_returns"
 
-    id           = Column(Integer, primary_key=True)
-    date         = Column(Date, nullable=False)
-    ticker       = Column(String(20), nullable=False)   # "^FTSE", "^GSPC", "^VUKE.L"
-    price_close  = Column(Float, nullable=False)
-    daily_return = Column(Float, nullable=False)        # log return, not simple return
-    created_at   = Column(DateTime(timezone=True), default=_utcnow)
+    id:           Mapped[int]      = mapped_column(primary_key=True)
+    date:         Mapped[date]
+    ticker:       Mapped[str]      = mapped_column(String(20))
+    price_close:  Mapped[float]
+    daily_return: Mapped[float]
+    created_at:   Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
 
     __table_args__ = (UniqueConstraint("date", "ticker"),)
 
@@ -23,22 +26,26 @@ class MarketReturn(Base):
 class InterestRate(Base):
     __tablename__ = "interest_rates"
 
-    id         = Column(Integer, primary_key=True)
-    date       = Column(Date, nullable=False, unique=True)
-    rate_pct   = Column(Float, nullable=False)          # e.g. 5.25 for 5.25%
-    source     = Column(String(50), default="BoE")
-    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    id:         Mapped[int]      = mapped_column(primary_key=True)
+    date:       Mapped[date]     = mapped_column(unique=True)
+    rate_pct:   Mapped[float]
+    source:     Mapped[str]      = mapped_column(String(50), default="BoE")
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class UnemploymentRate(Base):
     __tablename__ = "unemployment_rates"
 
-    id         = Column(Integer, primary_key=True)
-    period     = Column(String(20), nullable=False)     # "2024 Q1"
-    sector     = Column(String(100), nullable=False)    # "Professional services"
-    region     = Column(String(100), nullable=False)    # "London"
-    age_band   = Column(String(50), nullable=False)     # "25-34"
-    rate_pct   = Column(Float, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    id:         Mapped[int]      = mapped_column(primary_key=True)
+    period:     Mapped[str]      = mapped_column(String(20))
+    sector:     Mapped[str]      = mapped_column(String(100))
+    region:     Mapped[str]      = mapped_column(String(100))
+    age_band:   Mapped[str]      = mapped_column(String(50))
+    rate_pct:   Mapped[float]
+    created_at: Mapped[datetime] = mapped_column(
+        default=lambda: datetime.now(timezone.utc)
+    )
 
     __table_args__ = (UniqueConstraint("period", "sector", "region", "age_band"),)
