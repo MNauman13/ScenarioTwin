@@ -5,7 +5,7 @@ not a long-running server.
 import logging
 from .database import engine, SessionLocal, Base
 from . import models  # noqa: F401 — registers all tables with Base.metadata before create_all
-from .sources import market_returns, boe_rates
+from .sources import market_returns, boe_rates, ons_unemployment
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
 logger = logging.getLogger(__name__)
@@ -25,6 +25,11 @@ def main():
         boe_results = boe_rates.fetch_and_store(db)
         boe_rates.validate(db)
         logger.info("Interest rates done: %d rows", boe_results)
+
+        logger.info("=== ONS unemployment ===")
+        ons_results = ons_unemployment.fetch_and_store(db)
+        ons_unemployment.validate(db)
+        logger.info("ONS unemployment done: %d rows", ons_results)
 
 
 if __name__ == "__main__":
