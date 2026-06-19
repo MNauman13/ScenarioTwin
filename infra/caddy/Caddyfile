@@ -1,0 +1,9 @@
+# Caddyfile — TLS termination and reverse proxy
+# Replace yourdomain.com with your actual domain at deploy time (Phase 7)
+
+yourdomain.com {
+    reverse_proxy api-gateway:8000
+    tls {
+        # Caddy auto-provisions Let's Encrypt certificates
+    }
+}

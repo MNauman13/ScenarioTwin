@@ -1,0 +1,117 @@
+version: "3.9"
+
+# All internal services share a private network.
+# Only the api-gateway exposes a port to the host.
+
+networks:
+  internal:
+    driver: bridge
+
+services:
+  # ── Infrastructure ────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── LLM Gateway ──────────────────────────────────────────────────────────────
+  llm-gateway:
+    image: ghcr.io/berriai/litellm:main-latest
+    restart: unless-stopped
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./services/llm-gateway/litellm_config.yaml:/app/config.yaml:ro
+    networks: [internal]
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+
+  # ── Simulation Engine ─────────────────────────────────────────────────────────
+  simulation-engine:
+    build:
+      context: ./services/simulation-engine
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Agent Orchestration ───────────────────────────────────────────────────────
+  agent-orchestration:
+    build:
+      context: ./services/agent-orchestration
+    restart: unless-stopped
+    environment:
+      SIMULATION_ENGINE_URL: ${SIMULATION_ENGINE_URL}
+      LLM_GATEWAY_URL: ${LLM_GATEWAY_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks: [internal]
+    depends_on:
+      - simulation-engine
+      - llm-gateway
+
+  # ── API Gateway (the only internet-facing service) ────────────────────────────
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES}
+      SIMULATION_ENGINE_URL: ${SIMULATION_ENGINE_URL}
+      AGENT_ORCHESTRATION_URL: ${AGENT_ORCHESTRATION_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks: [internal]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      simulation-engine:
+        condition: service_started
+      agent-orchestration:
+        condition: service_started
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://api-gateway:8000
+    networks: [internal]
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
