@@ -2,14 +2,98 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
-  placeholder:
+
+  # ── Simulation engine unit tests ──────────────────────────────────────────
+  test-simulation-engine:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/simulation-engine
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/simulation-engine/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short
+
+  # ── Agent orchestration unit tests ───────────────────────────────────────
+  test-agent-orchestration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/agent-orchestration
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/agent-orchestration/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short
+
+  # ── Guardrail adversarial eval ────────────────────────────────────────────
+  evals:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: CI placeholder
-        run: echo "ci placeholder — real steps added per phase"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/agent-orchestration/requirements.txt
+
+      - name: Install agent orchestration deps
+        run: pip install -r services/agent-orchestration/requirements.txt
+
+      - name: Run evals
+        run: python evals/run_all.py
+
+  # ── Security audits ───────────────────────────────────────────────────────
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit simulation engine
+        run: pip-audit -r services/simulation-engine/requirements.txt
+
+      - name: Audit agent orchestration
+        run: pip-audit -r services/agent-orchestration/requirements.txt
+
+      - name: Audit API gateway
+        run: pip-audit -r services/api-gateway/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm audit frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
